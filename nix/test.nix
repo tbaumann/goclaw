@@ -1,19 +1,29 @@
-{pkgs}:
+{
+  pkgs,
+  self,
+  ...
+}:
+let
+  system = pkgs.stdenv.hostPlatform.system;
+in
 pkgs.testers.nixosTest {
   name = "goclaw-test";
   nodes = {
-    machine = {
-      config,
-      pkgs,
-      ...
-    }: {
-      imports = [./module.nix];
+    machine =
+      {
+        config,
+        pkgs,
+        ...
+      }:
+      {
+        imports = [ self.nixosModules.default ];
 
-      services.goclaw = {
-        enable = true;
-        gatewayPort = 18790;
+        services.goclaw = {
+          enable = true;
+          gatewayPort = 18790;
+          package = self.packages.${system}.default;
+        };
       };
-    };
   };
 
   testScript = ''

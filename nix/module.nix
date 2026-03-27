@@ -1,33 +1,29 @@
 {
-  config,
   lib,
-  pkgs,
-  withSystem,
-  localFlake,
+  config,
   ...
-}: let
+}:
+let
   cfg = config.services.goclaw;
-in {
+in
+{
   /*
-   TODO:
-  * services.goclaw.env-file for secrets (systemd EnvironmentFile)
-  * Only setup postgres locally if no DSN is configured (add option)
-  * nginx vhost configurable
-  * /ws proxy
-  * /assets proxy
-  * nginx optional
-  * caddy?
-  * superuser access for goclaw is a horrowshow. (not solvable without upstream)
+     TODO:
+    * services.goclaw.env-file for secrets (systemd EnvironmentFile)
+    * Only setup postgres locally if no DSN is configured (add option)
+    * nginx vhost configurable
+    * /ws proxy
+    * /assets proxy
+    * nginx optional
+    * caddy?
+    * superuser access for goclaw is a horrowshow. (not solvable without upstream)
   */
   options.services.goclaw = {
     enable = lib.mkEnableOption "GoClaw AI agent gateway";
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = withSystem pkgs.stdenv.hostPlatform.system (
-        {config, ...}: config.packages.default
-      );
-      defaultText = "goclaw (from flake)";
+      defaultText = lib.literalMD "`packages.default` from the goclaw flake";
       description = "GoClaw package to use";
     };
 
@@ -39,7 +35,7 @@ in {
 
     env = lib.mkOption {
       type = lib.types.attrs;
-      default = {};
+      default = { };
       description = "Additional GoClaw environment variables";
     };
   };
@@ -51,24 +47,29 @@ in {
       description = "GoClaw AI agent gateway";
     };
 
-    users.groups.goclaw = {};
+    users.groups.goclaw = { };
 
     services.postgresql = {
       enable = true;
-      ensureDatabases = ["goclaw"];
+      ensureDatabases = [ "goclaw" ];
       ensureUsers = [
         {
           name = "goclaw";
           ensureDBOwnership = true;
-          ensureClauses = {superuser = true;}; # I hate it, but migrations want to add the vector extension
+          ensureClauses = {
+            superuser = true;
+          }; # I hate it, but migrations want to add the vector extension
         }
       ];
-      extensions = ps: [ps.pgvector];
+      extensions = ps: [ ps.pgvector ];
     };
     systemd.services.goclaw = {
       description = "GoClaw AI agent gateway";
-      wantedBy = ["multi-user.target"];
-      after = ["postgresql.service" "postgresql-setup.service"];
+      wantedBy = [ "multi-user.target" ];
+      after = [
+        "postgresql.service"
+        "postgresql-setup.service"
+      ];
       serviceConfig = {
         Type = "simple";
         User = "goclaw";
@@ -84,16 +85,15 @@ in {
         ];
         ExecStart = "${cfg.package}/bin/goclaw";
       };
-      environment =
-        {
-          GOCLAW_CONFIG = "/var/lib/goclaw/config.json";
-          GOCLAW_PORT = toString cfg.gatewayPort;
-          GOCLAW_POSTGRES_DSN = "postgresql:///goclaw?host=/var/run/postgresql";
-        }
-        // cfg.env;
+      environment = {
+        GOCLAW_CONFIG = "/var/lib/goclaw/config.json";
+        GOCLAW_PORT = toString cfg.gatewayPort;
+        GOCLAW_POSTGRES_DSN = "postgresql:///goclaw?host=/var/run/postgresql";
+      }
+      // cfg.env;
     };
 
-    services.nginx = lib.mkIf (cfg.package != null) {
+    services.nginx = {
       enable = true;
       virtualHosts = {
         "localhost" = {
